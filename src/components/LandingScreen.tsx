@@ -138,6 +138,12 @@ export function LandingScreen({ onSuccess }: LandingScreenProps) {
         const recognizedUser = await recognizeFace(videoRef.current, users);
 
         if (recognizedUser) {
+          console.log('Face recognized during login:', {
+            userId: recognizedUser.id,
+            userName: recognizedUser.name,
+            userEmail: recognizedUser.email,
+            timestamp: new Date().toISOString()
+          });
           setStatus(`Welcome back, ${recognizedUser.name}!`);
           cleanup();
           
@@ -172,6 +178,12 @@ export function LandingScreen({ onSuccess }: LandingScreenProps) {
       const descriptorString = descriptorToString(descriptor);
       const imageUrl = await captureFaceImage(videoRef.current);
 
+      console.log('Face captured during registration:', {
+        faceDataLength: descriptorString.length,
+        hasImage: !!imageUrl,
+        timestamp: new Date().toISOString()
+      });
+
       setCapturedFaceData(descriptorString);
       setCapturedFaceImage(imageUrl);
       setShowRegistrationForm(true);
@@ -191,7 +203,7 @@ export function LandingScreen({ onSuccess }: LandingScreenProps) {
     setError('');
 
     try {
-      await registerUser({
+      const userId = await registerUser({
         name: formData.name,
         email: formData.email,
         phone: '',
@@ -200,7 +212,7 @@ export function LandingScreen({ onSuccess }: LandingScreenProps) {
       });
 
       const newUser: User = {
-        id: Date.now().toString(),
+        id: userId,
         name: formData.name,
         email: formData.email,
         phone: '',
@@ -208,6 +220,15 @@ export function LandingScreen({ onSuccess }: LandingScreenProps) {
         faceImageUrl: capturedFaceImage,
         registeredAt: Timestamp.now(),
       };
+
+      console.log('User registration completed:', {
+        userId: newUser.id,
+        userName: newUser.name,
+        userEmail: newUser.email,
+        hasFaceData: !!capturedFaceData,
+        hasFaceImage: !!capturedFaceImage,
+        timestamp: new Date().toISOString()
+      });
 
       setStatus('Registration successful!');
       setTimeout(() => {
@@ -239,7 +260,16 @@ export function LandingScreen({ onSuccess }: LandingScreenProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex flex-col items-center justify-center p-4">
+      {/* Logo */}
+      <div className="mb-8">
+        <img 
+          src="/logo.png" 
+          alt="FaceFlow Logo" 
+          className="h-20 w-auto object-contain"
+        />
+      </div>
+
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">

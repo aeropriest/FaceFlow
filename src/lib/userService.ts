@@ -7,12 +7,15 @@ import {
   Timestamp,
   updateDoc,
   doc,
-  getDoc
+  getDoc,
+  deleteDoc
 } from 'firebase/firestore';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage, ref, uploadString, deleteObject, getDownloadURL } from 'firebase/storage';
 import app from '../config/firebase';
 
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 export interface User {
   id?: string;
@@ -37,8 +40,20 @@ export async function registerUser(userData: Omit<User, 'id' | 'registeredAt'>):
       throw new Error('User with this email already exists');
     }
 
+    let faceImageUrl = userData.faceImageUrl;
+
+    // Upload face image to Firebase Storage if provided
+    if (userData.faceImageUrl && userData.faceImageUrl.startsWith('data:')) {
+      const timestamp = Date.now();
+      const storageRef = ref(storage, `face-images/${timestamp}_${userData.email.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`);
+      await uploadString(storageRef, userData.faceImageUrl, 'data_url');
+      faceImageUrl = await getDownloadURL(storageRef);
+      console.log('Face image uploaded to Firebase Storage:', faceImageUrl);
+    }
+
     const docRef = await addDoc(usersRef, {
       ...userData,
+      faceImageUrl,
       registeredAt: Timestamp.now(),
     });
 
@@ -131,6 +146,38 @@ export async function updateUserProfile(
     await updateDoc(userRef, updates);
   } catch (error) {
     console.error('Error updating user profile:', error);
+    throw error;
+  }
+}
+
+export async function deleteUser(userId: string): Promise<void> {
+  try {
+    // Get user data first to delete face image from storage
+    const user = await findUserById(userId);
+    
+    if (user && user.faceImageUrl && user.faceImageUrl.includes('firebase')) {
+      try {
+        // Extract path from Firebase Storage URL and delete the image
+        const imageUrl = new URL(user.faceImageUrl);
+        const pathMatch = imageUrl.pathname.match(/\/o\/(.+?)\?/);
+        if (pathMatch) {
+          const imagePath = decodeURIComponent(pathMatch[1]);
+          const imageRef = ref(storage, imagePath);
+          await deleteObject(imageRef);
+          console.log('Face image deleted from Firebase Storage');
+        }
+      } catch (storageError) {
+        console.warn('Could not delete face image from storage:', storageError);
+      }
+    }
+
+    // Delete user document from Firestore
+    const userRef = doc(db, 'users', userId);
+    await deleteDoc(userRef);
+    
+    console.log('User deleted successfully:', userId);
+  } catch (error) {
+    console.error('Error deleting user:', error);
     throw error;
   }
 }

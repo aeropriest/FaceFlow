@@ -9,9 +9,11 @@ import { PastOrders } from './components/PastOrders';
 import { FirebaseLogin } from './components/FirebaseLogin';
 import { FirebaseSignup } from './components/FirebaseSignup';
 import { LandingScreen } from './components/LandingScreen';
+import { RecommendedOrders } from './components/RecommendedOrders';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { User } from 'lucide-react';
 import type { User as FaceUser } from './lib/userService';
+import { deleteUser } from './lib/userService';
 
 export interface Product {
   id: string;
@@ -39,6 +41,7 @@ interface UserProfile {
   name: string;
   phone: string;
   email: string;
+  faceImageUrl?: string;
 }
 
 function AppContent() {
@@ -55,6 +58,8 @@ function AppContent() {
   const [showPayment, setShowPayment] = useState(false);
   const [activeTab, setActiveTab] = useState<'pos' | 'history'>('pos');
   const [showPastOrders, setShowPastOrders] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [showRecommendations, setShowRecommendations] = useState(true);
 
   // Handle Firebase auth state
   useEffect(() => {
@@ -105,6 +110,7 @@ function AppContent() {
       name: user.name,
       email: user.email,
       phone: user.phone,
+      faceImageUrl: user.faceImageUrl,
     };
     setCurrentUser(userProfile);
     localStorage.setItem('currentUser', JSON.stringify(userProfile));
@@ -218,11 +224,76 @@ function AppContent() {
         console.error('Logout error:', error);
       }
     }
+    
+    // Clear user data
     setCurrentUser(null);
     localStorage.removeItem('currentUser');
+    
+    // Reset authentication state
     setIsAuthenticated(false);
+    
+    // Clear cart and orders display
     setCartItems([]);
     setShowPastOrders(false);
+    setShowRecommendations(true);
+    
+    // Reset all modal/screen states
+    setShowUserDropdown(false);
+    setShowPayment(false);
+    setShowRegistration(false);
+    setShowFirebaseLogin(false);
+    setShowFirebaseSignup(false);
+    setShowLoginOptions(false);
+    
+    // Return to landing screen
+    setShowFaceLogin(true);
+    setActiveTab('pos');
+    
+    console.log('User logged out successfully');
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!currentUser) return;
+
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete your account?\n\nThis will permanently remove:\n- Your face recognition data\n- Your profile information\n- All your order history\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      // Delete from Firestore if user has an ID
+      if (currentUser.id) {
+        await deleteUser(currentUser.id);
+        console.log('Account deleted from Firestore');
+      }
+
+      // Clear localStorage
+      localStorage.removeItem('currentUser');
+      localStorage.removeItem('orders');
+
+      // Reset all state
+      setCurrentUser(null);
+      setIsAuthenticated(false);
+      setCartItems([]);
+      setOrders([]);
+      setShowPastOrders(false);
+      setShowRecommendations(true);
+      setShowUserDropdown(false);
+      setShowPayment(false);
+      setShowRegistration(false);
+      setShowFirebaseLogin(false);
+      setShowFirebaseSignup(false);
+      setShowLoginOptions(false);
+      setShowFaceLogin(true);
+      setActiveTab('pos');
+
+      alert('Your account has been successfully deleted.');
+      console.log('Account deleted successfully');
+    } catch (error: any) {
+      console.error('Error deleting account:', error);
+      alert(`Failed to delete account: ${error.message}`);
+    }
   };
 
   const handleShowFirebaseLogin = () => {
@@ -254,6 +325,46 @@ function AppContent() {
   const userOrders = currentUser
     ? orders.filter((order) => order.userId === currentUser.id)
     : orders;
+
+  // Calculate recommended orders based on frequency
+  const getRecommendedOrders = () => {
+    if (!currentUser || userOrders.length === 0) return [];
+
+    const orderMap = new Map<string, { items: CartItem[]; frequency: number; lastOrdered: Date }>();
+
+    userOrders.forEach((order) => {
+      const orderKey = order.items
+        .map((item) => `${item.id}-${item.quantity}`)
+        .sort()
+        .join('|');
+
+      if (orderMap.has(orderKey)) {
+        const existing = orderMap.get(orderKey)!;
+        existing.frequency += 1;
+        if (order.timestamp > existing.lastOrdered) {
+          existing.lastOrdered = order.timestamp;
+        }
+      } else {
+        orderMap.set(orderKey, {
+          items: order.items,
+          frequency: 1,
+          lastOrdered: order.timestamp,
+        });
+      }
+    });
+
+    return Array.from(orderMap.values())
+      .filter((rec) => rec.frequency >= 2)
+      .sort((a, b) => b.frequency - a.frequency)
+      .slice(0, 3);
+  };
+
+  const recommendedOrders = getRecommendedOrders();
+
+  const handleSelectRecommendedOrder = (items: CartItem[]) => {
+    setCartItems(items);
+    setShowRecommendations(false);
+  };
 
   if (authLoading) {
     return (
@@ -331,29 +442,14 @@ function AppContent() {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-semibold text-gray-900">
-              Coffee Shop POS
-            </h1>
+            <div className="flex items-center">
+              <img 
+                src="/logo.png" 
+                alt="FaceFlow Logo" 
+                className="h-10 w-auto object-contain"
+              />
+            </div>
             <div className="flex items-center gap-4">
-              {currentUser && (
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-lg border border-amber-200">
-                    <User className="w-5 h-5 text-amber-600" />
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-gray-900">
-                        {currentUser.name}
-                      </p>
-                      <p className="text-xs text-gray-600">{currentUser.email}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleLogout}
-                    className="text-sm text-gray-600 hover:text-gray-800 underline"
-                  >
-                    Logout
-                  </button>
-                </div>
-              )}
               <div className="flex gap-2">
                 <button
                   onClick={() => setActiveTab('pos')}
@@ -376,10 +472,71 @@ function AppContent() {
                   Order History
                 </button>
               </div>
+              {currentUser && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowUserDropdown(!showUserDropdown)}
+                    className="w-12 h-12 rounded-full overflow-hidden border-2 border-amber-500 hover:border-amber-600 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
+                  >
+                    {currentUser.faceImageUrl ? (
+                      <img 
+                        src={currentUser.faceImageUrl} 
+                        alt={currentUser.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-amber-100 flex items-center justify-center">
+                        <User className="w-6 h-6 text-amber-600" />
+                      </div>
+                    )}
+                  </button>
+                  {showUserDropdown && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setShowUserDropdown(false)}
+                      />
+                      <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
+                        <div className="px-4 py-3 border-b border-gray-200">
+                          <p className="text-sm font-medium text-gray-900">{currentUser.name}</p>
+                          <p className="text-xs text-gray-600">{currentUser.email}</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setShowUserDropdown(false);
+                            handleLogout();
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Logout
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowUserDropdown(false);
+                            handleDeleteAccount();
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-gray-200"
+                        >
+                          Delete Account
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
       </header>
+
+      {/* Recommended Orders */}
+      {currentUser && showRecommendations && recommendedOrders.length > 0 && activeTab === 'pos' && (
+        <RecommendedOrders
+          recommendations={recommendedOrders}
+          onSelectOrder={handleSelectRecommendedOrder}
+          onClose={() => setShowRecommendations(false)}
+        />
+      )}
 
       {/* Past Orders Banner */}
       {currentUser && showPastOrders && userOrders.length > 0 && activeTab === 'pos' && (
