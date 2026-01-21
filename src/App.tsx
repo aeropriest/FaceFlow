@@ -8,7 +8,7 @@ import { FaceRegistration } from './components/FaceRegistration';
 import { PastOrders } from './components/PastOrders';
 import { FirebaseLogin } from './components/FirebaseLogin';
 import { FirebaseSignup } from './components/FirebaseSignup';
-import { FaceLogin } from './components/FaceLogin';
+import { LandingScreen } from './components/LandingScreen';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { User } from 'lucide-react';
 import type { User as FaceUser } from './lib/userService';
@@ -271,10 +271,8 @@ function AppContent() {
   if (!isAuthenticated) {
     if (showFaceLogin) {
       return (
-        <FaceLogin
+        <LandingScreen
           onSuccess={handleFaceLoginSuccess}
-          onRegisterRedirect={handleFaceLoginRegisterRedirect}
-          onSkip={handleFaceLoginSkip}
         />
       );
     }

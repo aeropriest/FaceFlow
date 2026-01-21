@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Loader2, AlertCircle, UserCheck } from 'lucide-react';
+import { Camera, Loader2, AlertCircle, UserCheck, Chrome, UserCircle } from 'lucide-react';
 import { loadFaceRecognitionModels, recognizeFace } from '../lib/faceRecognition';
 import { getAllUsers, User } from '../lib/userService';
 
@@ -148,18 +148,14 @@ export function FaceLogin({ onSuccess, onRegisterRedirect, onSkip }: FaceLoginPr
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center p-4">
-      <div className="max-w-2xl w-full">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-amber-600 rounded-full mb-4">
-            <span className="text-4xl">☕</span>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Face Recognition Login</h1>
-          <p className="text-gray-600">Look at the camera to sign in automatically</p>
+      <div className="max-w-md w-full">
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Position your face in the circle for recognition</h1>
         </div>
 
-        <div className="bg-white rounded-2xl p-8 shadow-lg">
+        <div className="bg-white rounded-2xl p-6 shadow-lg">
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="text-sm font-medium text-red-800">{error}</p>
@@ -167,36 +163,48 @@ export function FaceLogin({ onSuccess, onRegisterRedirect, onSkip }: FaceLoginPr
             </div>
           )}
 
-          <div className="relative aspect-video bg-gray-900 rounded-lg overflow-hidden mb-6">
+          {/* Camera View with Face.png Overlay */}
+          <div className="relative w-full aspect-[3/4] max-w-xs mx-auto bg-gray-900 rounded-xl overflow-hidden mb-6">
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover scale-x-[-1]"
             />
 
+            {/* Face.png Overlay */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <img 
+                src="/face.png" 
+                alt="Face alignment guide" 
+                className="w-64 h-64 object-contain opacity-80"
+              />
+            </div>
+
+            {/* Loading State */}
             {isLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50">
                 <div className="text-center">
-                  <Loader2 className="w-12 h-12 text-white animate-spin mx-auto mb-3" />
-                  <p className="text-white text-sm">{scanStatus}</p>
+                  <Loader2 className="w-10 h-10 text-white animate-spin mx-auto mb-2" />
+                  <p className="text-white text-xs">{scanStatus}</p>
                 </div>
               </div>
             )}
 
+            {/* Scanning Status */}
             {!isLoading && !error && (
-              <div className="absolute bottom-4 left-4 right-4">
-                <div className="bg-black/70 backdrop-blur-sm rounded-lg px-4 py-3">
-                  <div className="flex items-center gap-3">
+              <div className="absolute bottom-3 left-3 right-3">
+                <div className="bg-black/70 backdrop-blur-sm rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-2">
                     {scanAttempts < MAX_SCAN_ATTEMPTS ? (
                       <>
-                        <Camera className="w-5 h-5 text-green-400 animate-pulse" />
-                        <div className="flex-1">
-                          <p className="text-white text-sm font-medium">{scanStatus}</p>
-                          <div className="mt-2 w-full bg-gray-700 rounded-full h-1.5">
+                        <Camera className="w-4 h-4 text-green-400 animate-pulse flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-xs font-medium truncate">{scanStatus}</p>
+                          <div className="mt-1 w-full bg-gray-700 rounded-full h-1">
                             <div
-                              className="bg-green-400 h-1.5 rounded-full transition-all duration-300"
+                              className="bg-green-400 h-1 rounded-full transition-all duration-300"
                               style={{ width: `${(scanAttempts / MAX_SCAN_ATTEMPTS) * 100}%` }}
                             />
                           </div>
@@ -204,8 +212,8 @@ export function FaceLogin({ onSuccess, onRegisterRedirect, onSkip }: FaceLoginPr
                       </>
                     ) : (
                       <>
-                        <UserCheck className="w-5 h-5 text-amber-400" />
-                        <p className="text-white text-sm font-medium">{scanStatus}</p>
+                        <UserCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                        <p className="text-white text-xs font-medium">{scanStatus}</p>
                       </>
                     )}
                   </div>
@@ -214,38 +222,37 @@ export function FaceLogin({ onSuccess, onRegisterRedirect, onSkip }: FaceLoginPr
             )}
           </div>
 
+          {/* Buttons Below Camera */}
           <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              <span>Camera active - Position your face in the frame</span>
-            </div>
+            <button
+              onClick={onSkip}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+            >
+              <Chrome className="w-5 h-5" />
+              Continue with Google
+            </button>
 
-            <div className="flex gap-3">
-              <button
-                onClick={onSkip}
-                className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-              >
-                Use Other Login Methods
-              </button>
-              <button
-                onClick={onRegisterRedirect}
-                className="flex-1 px-4 py-3 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors"
-              >
-                Register New Face
-              </button>
-            </div>
+            <button
+              onClick={onSkip}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+            >
+              <UserCircle className="w-5 h-5" />
+              Continue as Guest
+            </button>
+
+            <button
+              onClick={onRegisterRedirect}
+              className="w-full text-sm text-gray-600 hover:text-gray-800 underline"
+            >
+              New user? Register here
+            </button>
           </div>
 
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <strong>Tips for best results:</strong>
+          {/* Bottom Text */}
+          <div className="mt-4 text-center">
+            <p className="text-sm text-gray-600">
+              Center your face in the circle. We'll recognize you automatically!
             </p>
-            <ul className="mt-2 text-sm text-blue-700 space-y-1 list-disc list-inside">
-              <li>Ensure good lighting on your face</li>
-              <li>Look directly at the camera</li>
-              <li>Keep your face 1-2 feet from the screen</li>
-              <li>Remove glasses if recognition fails</li>
-            </ul>
           </div>
         </div>
       </div>
